@@ -10,22 +10,41 @@ def get_zona(dest):
     if not isinstance(dest, str):
         return "Alta", "#FFFFFF"
     d = dest.strip()
+
+    exact_mov = ['DC2_R30_OCT_H01', 'DC1_R30_OTC_H01']
+    if d in exact_mov:
+        return "Mov", "#C27BA0"
+
+    exact_rosu = ['SOF_SOFIAHUB_H01']
+    if d in exact_rosu:
+        return "Rosu", "#FF4444"
+
+    exact_verde = ['CV_SFGHEORGHE_A01', 'CT_MEGIDIA_A05', 'GR_GIURGIU_A02', 'CL_CALARASI_A01']
+    if d in exact_verde:
+        return "Verde", "#C6EFCE"
+
     mov_patterns = ['B_A0', 'B_PO', 'B_ST', 'B_MO', 'B_HUB', 'B_BRAG', 'B_STEF', 'LOCKERE', 'SB_SIBIU_H']
     for p in mov_patterns:
         if d.startswith(p):
             return "Mov", "#C27BA0"
+
     prefix2 = d[:2]
+
     verde = ['BZ', 'DJ', 'OT', 'BR', 'DB', 'PH', 'IL', 'AG', 'TR']
     if prefix2 in verde:
         return "Verde", "#C6EFCE"
+
     rosu = ['IS', 'CJ', 'MM', 'BN', 'CS', 'SV', 'BH', 'TM', 'SM', 'SJ', 'BT', 'AR', 'SD']
     if prefix2 in rosu:
         return "Rosu", "#FF4444"
+
     if d.startswith('MS_TGM') or d.startswith('MS_TGMURES'):
         return "Rosu", "#FF4444"
+
     galben = ['SB', 'BC', 'CT', 'TL', 'HD', 'VL', 'NT', 'VN', 'MS', 'HR', 'GJ', 'MH', 'GL', 'BV', 'AB', 'VS']
     if prefix2 in galben:
         return "Galben", "#FFEB9C"
+
     return "Alta", "#FFFFFF"
 
 def coloreaza(row):
