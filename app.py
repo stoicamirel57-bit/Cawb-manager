@@ -8,25 +8,25 @@ st.markdown("---")
 
 def get_zona(dest):
     if not isinstance(dest, str):
-        return "Alta zona", "#FFFFFF"
+        return "Alta", "#FFFFFF"
     d = dest.strip()
     mov_patterns = ['B_A0', 'B_PO', 'B_ST', 'B_MO', 'B_HUB', 'B_BRAG', 'B_STEF', 'LOCKERE', 'SB_SIBIU_H']
     for p in mov_patterns:
         if d.startswith(p):
-            return "Bucuresti / Hub-uri", "#C27BA0"
+            return "Mov", "#C27BA0"
     prefix2 = d[:2]
     verde = ['BZ', 'DJ', 'OT', 'BR', 'DB', 'PH', 'IL', 'AG', 'TR']
     if prefix2 in verde:
-        return "Sud", "#C6EFCE"
+        return "Verde", "#C6EFCE"
     rosu = ['IS', 'CJ', 'MM', 'BN', 'CS', 'SV', 'BH', 'TM', 'SM', 'SJ', 'BT', 'AR', 'SD']
     if prefix2 in rosu:
-        return "Nord / Vest / International", "#FFC7CE"
+        return "Rosu", "#FF4444"
     if d.startswith('MS_TGM') or d.startswith('MS_TGMURES'):
-        return "Nord / Vest / International", "#FFC7CE"
+        return "Rosu", "#FF4444"
     galben = ['SB', 'BC', 'CT', 'TL', 'HD', 'VL', 'NT', 'VN', 'MS', 'HR', 'GJ', 'MH', 'GL', 'BV', 'AB', 'VS']
     if prefix2 in galben:
-        return "Alte zone", "#FFEB9C"
-    return "Alta zona", "#FFFFFF"
+        return "Galben", "#FFEB9C"
+    return "Alta", "#FFFFFF"
 
 def coloreaza(row):
     _, culoare = get_zona(row.get("Destinatie", ""))
@@ -60,7 +60,7 @@ if uploaded_files:
         split_ruta = df["Ruta"].str.split(" => ", expand=True, n=1)
         df["Origine"] = split_ruta[0]
         df["Destinatie"] = split_ruta[1] if 1 in split_ruta.columns else ""
-        df["Zona"] = df["Destinatie"].apply(lambda x: get_zona(x)[0])
+        df["Culoare"] = df["Destinatie"].apply(lambda x: get_zona(x)[0])
         df_fara_parinte = df[df["CAWB parinte"] == "Fara parinte"].copy()
         df_cu_parinte = df[df["CAWB parinte"] != "Fara parinte"].copy()
 
@@ -74,12 +74,12 @@ if uploaded_files:
         col5.metric("Total Colete", f"{df['Nr colete'].sum():,}")
 
         st.markdown("---")
-        st.markdown("**Legenda zone:**")
+        st.markdown("**Legenda culori:**")
         lc1, lc2, lc3, lc4 = st.columns(4)
-        lc1.markdown('<div style="background-color:#C6EFCE;padding:8px;border-radius:5px;text-align:center"><b>Sud</b></div>', unsafe_allow_html=True)
-        lc2.markdown('<div style="background-color:#FFC7CE;padding:8px;border-radius:5px;text-align:center"><b>Nord / Vest / International</b></div>', unsafe_allow_html=True)
-        lc3.markdown('<div style="background-color:#C27BA0;padding:8px;border-radius:5px;text-align:center;color:white"><b>Bucuresti / Hub-uri</b></div>', unsafe_allow_html=True)
-        lc4.markdown('<div style="background-color:#FFEB9C;padding:8px;border-radius:5px;text-align:center"><b>Alte zone</b></div>', unsafe_allow_html=True)
+        lc1.markdown('<div style="background-color:#C6EFCE;padding:8px;border-radius:5px;text-align:center"><b>Verde - Sud</b></div>', unsafe_allow_html=True)
+        lc2.markdown('<div style="background-color:#FF4444;padding:8px;border-radius:5px;text-align:center;color:white"><b>Rosu - Nord / Vest / International</b></div>', unsafe_allow_html=True)
+        lc3.markdown('<div style="background-color:#C27BA0;padding:8px;border-radius:5px;text-align:center;color:white"><b>Mov - Bucuresti / Hub-uri</b></div>', unsafe_allow_html=True)
+        lc4.markdown('<div style="background-color:#FFEB9C;padding:8px;border-radius:5px;text-align:center"><b>Galben - Alte zone</b></div>', unsafe_allow_html=True)
         st.markdown("---")
 
         tab1, tab2, tab3 = st.tabs(["Fara Parinte", "Cu Parinte", "Toate CAWB-urile"])
@@ -92,11 +92,11 @@ if uploaded_files:
             origini = ["Toate"] + sorted(data["Origine"].dropna().unique().tolist())
             dest = ["Toate"] + sorted(data["Destinatie"].dropna().unique().tolist())
             tipuri = sorted(data["Tip"].dropna().unique().tolist())
-            zone_disponibile = ["Toate"] + sorted(data["Zona"].dropna().unique().tolist())
+            culori_disponibile = ["Toate"] + sorted(data["Culoare"].dropna().unique().tolist())
             origine_sel = col_a.selectbox("Origine", origini, key="orig_" + key_suffix)
             dest_sel = col_b.selectbox("Destinatie", dest, key="dest_" + key_suffix)
             tipuri_sel = col_c.multiselect("Tip CAWB", options=tipuri, default=tipuri, key="tip_" + key_suffix)
-            zona_sel = col_d.selectbox("Zona / Culoare", zone_disponibile, key="zona_" + key_suffix)
+            culoare_sel = col_d.selectbox("Culoare", culori_disponibile, key="culoare_" + key_suffix)
             min_c = int(data["Nr colete"].min())
             max_c = int(data["Nr colete"].max())
             if min_c < max_c:
@@ -117,8 +117,8 @@ if uploaded_files:
                 filtered = filtered[filtered["Destinatie"] == dest_sel]
             if tipuri_sel:
                 filtered = filtered[filtered["Tip"].isin(tipuri_sel)]
-            if zona_sel != "Toate":
-                filtered = filtered[filtered["Zona"] == zona_sel]
+            if culoare_sel != "Toate":
+                filtered = filtered[filtered["Culoare"] == culoare_sel]
             if search:
                 filtered = filtered[filtered["CAWB"].str.contains(search, case=False, na=False)]
             filtered = filtered[
@@ -127,10 +127,10 @@ if uploaded_files:
             ]
 
             if include_transport:
-                cols_show = ["CAWB", "Tip", "Zona", "Ruta", "Origine", "Destinatie", "CAWB parinte",
+                cols_show = ["CAWB", "Tip", "Culoare", "Ruta", "Origine", "Destinatie", "CAWB parinte",
                              "Mijloc transport", "Nr colete", "Total colete descarcate", "Ramas de descarcat", "Fisier sursa"]
             else:
-                cols_show = ["CAWB", "Tip", "Zona", "Ruta", "Origine", "Destinatie", "CAWB parinte",
+                cols_show = ["CAWB", "Tip", "Culoare", "Ruta", "Origine", "Destinatie", "CAWB parinte",
                              "Nr colete", "Total colete descarcate", "Ramas de descarcat", "Fisier sursa"]
 
             available = [c for c in cols_show if c in filtered.columns]
