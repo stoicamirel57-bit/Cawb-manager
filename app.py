@@ -6,45 +6,52 @@ st.set_page_config(page_title="CAWB Manager", page_icon="parcels", layout="wide"
 st.title("CAWB Manager")
 st.markdown("---")
 
+MIJLOACE_TRANSPORT = [
+    'IF32YAC', 'CL27ABS', 'IF69AMS', 'IF19TEX', 'IF07SNA', 'IF87MGV', 'IF21MGW',
+    'IF35TEX', 'GR21TEX', 'IF57STM', 'IF90SNA', 'IF96STM', 'B125MLK', 'IL51DOD',
+    'BR78CEH', 'IF68SMA', 'CL30ABS', 'B150MLK', 'IF43MGV', 'IF15ANS', 'IF42STT',
+    'IF41MGV', 'IF92STM', 'IF20MGW', 'IF19SNA', 'IF93STM', 'B724SMA', 'BR73CEH',
+    'IF54MGV', 'IF15YAC', 'GR20ALR', 'IF98SNA', 'BR71CEH', 'IF38AMS', 'IF41AMS',
+    'IF20SNA', 'IF11YAC', 'IF94STM', 'IF51ASM', 'IF28AMS', 'B165MLK', 'IF98STM',
+    'IF78MGV', 'BR75CEH', 'IF29SNA', 'IL16DOD', 'B151TKT', 'GR26MNU', 'IF78STM',
+    'IF39ASM', 'B163MLK', 'IL64BMG', 'IF64SMA', 'B168MLK', 'IF53MGV', 'BR77CEH',
+    'IL19DOD', 'GR24ZZI', 'IF32MGV', 'IF30YAC', 'IF36MGV', 'IL44DOD', 'IF42YAC',
+    'IF96SNA', 'IF44ANS', 'IL94DOD', 'BR72CEH', 'IF18VXX', 'IF86SMA', 'IF67MGV',
+    'IL23BGM', 'IF93ANS', 'IF02MGW', 'IF70MGV', 'IF31TEX', 'IF26MGW', 'GR14TEX',
+    'IF42SSA', 'IF47YAC', 'IF94MGV', 'TR20DEN', 'IF93AMS', 'IF52STM', 'IF89MGV',
+    'CL25ABS', 'IF28YAC', 'GR11CXB', 'TR10TEN', 'IF26ANS', 'IF32MGW', 'IF71MGV',
+    'IF19MGW', 'TR97TEN', 'MH92TOX', 'IF20DTI', 'IF29MGW', 'IF79MGV', 'IF72MGV'
+]
+
 def get_zona(dest):
     if not isinstance(dest, str):
         return "Alta", "#FFFFFF"
     d = dest.strip()
-
     exact_mov = ['DC2_R30_OCT_H01', 'DC1_R30_OTC_H01']
     if d in exact_mov:
         return "Mov", "#C27BA0"
-
     exact_rosu = ['SOF_SOFIAHUB_H01']
     if d in exact_rosu:
         return "Rosu", "#FF4444"
-
     exact_verde = ['CV_SFGHEORGHE_A01', 'CT_MEGIDIA_A05', 'GR_GIURGIU_A02', 'CL_CALARASI_A01']
     if d in exact_verde:
         return "Verde", "#C6EFCE"
-
     mov_patterns = ['B_A0', 'B_PO', 'B_ST', 'B_MO', 'B_HUB', 'B_BRAG', 'B_STEF', 'LOCKERE', 'SB_SIBIU_H']
     for p in mov_patterns:
         if d.startswith(p):
             return "Mov", "#C27BA0"
-
     prefix2 = d[:2]
-
     verde = ['BZ', 'DJ', 'OT', 'BR', 'DB', 'PH', 'IL', 'AG', 'TR']
     if prefix2 in verde:
         return "Verde", "#C6EFCE"
-
     rosu = ['IS', 'CJ', 'MM', 'BN', 'CS', 'SV', 'BH', 'TM', 'SM', 'SJ', 'BT', 'AR', 'SD']
     if prefix2 in rosu:
         return "Rosu", "#FF4444"
-
     if d.startswith('MS_TGM') or d.startswith('MS_TGMURES'):
         return "Rosu", "#FF4444"
-
     galben = ['SB', 'BC', 'CT', 'TL', 'HD', 'VL', 'NT', 'VN', 'MS', 'HR', 'GJ', 'MH', 'GL', 'BV', 'AB', 'VS']
     if prefix2 in galben:
         return "Galben", "#FFEB9C"
-
     return "Alta", "#FFFFFF"
 
 def coloreaza(row):
@@ -101,7 +108,7 @@ if uploaded_files:
         lc4.markdown('<div style="background-color:#FFEB9C;padding:8px;border-radius:5px;text-align:center"><b>Galben - Alte zone</b></div>', unsafe_allow_html=True)
         st.markdown("---")
 
-        tab1, tab2, tab3 = st.tabs(["Fara Parinte", "Cu Parinte", "Toate CAWB-urile"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Fara Parinte", "Cu Parinte", "Toate CAWB-urile", "Mijloace Transport"])
 
         def afiseaza_tabel(data, key_suffix, include_transport=False):
             st.markdown("### Filtre")
@@ -177,12 +184,77 @@ if uploaded_files:
         with tab1:
             st.subheader("CAWB-uri Fara Parinte (" + str(len(df_fara_parinte)) + ")")
             afiseaza_tabel(df_fara_parinte, "fara_parinte", include_transport=False)
+
         with tab2:
             st.subheader("CAWB-uri Cu Parinte (" + str(len(df_cu_parinte)) + ")")
             afiseaza_tabel(df_cu_parinte, "cu_parinte", include_transport=True)
+
         with tab3:
             st.subheader("Toate CAWB-urile (" + str(len(df)) + ")")
             afiseaza_tabel(df, "toate", include_transport=False)
+
+        with tab4:
+            st.subheader("Filtrare dupa Mijloc de Transport")
+            st.markdown("Selecteaza una sau mai multe masini:")
+
+            col_sel1, col_sel2 = st.columns([1, 3])
+            with col_sel1:
+                if st.button("Selecteaza toate", key="sel_toate"):
+                    st.session_state["masini_selectate"] = MIJLOACE_TRANSPORT
+                if st.button("Deselecteaza toate", key="desel_toate"):
+                    st.session_state["masini_selectate"] = []
+
+            if "masini_selectate" not in st.session_state:
+                st.session_state["masini_selectate"] = []
+
+            masini_selectate = st.multiselect(
+                "Mijloace de transport",
+                options=sorted(MIJLOACE_TRANSPORT),
+                default=st.session_state["masini_selectate"],
+                key="masini_multi"
+            )
+
+            st.markdown("---")
+
+            if masini_selectate:
+                col_t1, col_t2 = st.columns(2)
+                ascunde_zero_t = col_t1.checkbox("Ascunde 0 colete", value=True, key="zero_transport")
+                search_t = col_t2.text_input("Cauta CAWB", key="search_transport")
+
+                filtered_t = df.copy()
+                if "Mijloc transport" in filtered_t.columns:
+                    filtered_t = filtered_t[filtered_t["Mijloc transport"].isin(masini_selectate)]
+                if ascunde_zero_t:
+                    filtered_t = filtered_t[filtered_t["Nr colete"] > 0]
+                if search_t:
+                    filtered_t = filtered_t[filtered_t["CAWB"].str.contains(search_t, case=False, na=False)]
+
+                cols_show_t = ["CAWB", "Tip", "Culoare", "Ruta", "Origine", "Destinatie",
+                               "CAWB parinte", "Mijloc transport", "Nr colete",
+                               "Total colete descarcate", "Ramas de descarcat", "Fisier sursa"]
+                available_t = [c for c in cols_show_t if c in filtered_t.columns]
+                display_t = filtered_t[available_t].reset_index(drop=True)
+
+                ct1, ct2, ct3 = st.columns(3)
+                ct1.metric("CAWB-uri gasite", f"{len(display_t):,}")
+                ct2.metric("Total Colete", f"{display_t['Nr colete'].sum():,}")
+                ct3.metric("Total Descarcate", f"{display_t['Total colete descarcate'].sum():,}")
+
+                styled_t = display_t.style.apply(coloreaza, axis=1)
+                st.dataframe(styled_t, use_container_width=True, height=450)
+
+                buffer_t = io.BytesIO()
+                display_t.to_excel(buffer_t, index=False)
+                buffer_t.seek(0)
+                st.download_button(
+                    "Descarca Excel",
+                    data=buffer_t,
+                    file_name="cawb_transport.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="dl_transport"
+                )
+            else:
+                st.info("Selecteaza cel putin o masina pentru a vedea rezultatele.")
 
 else:
     st.info("Te rog incarca unul sau mai multe fisiere CSV sau Excel pentru a incepe.")
