@@ -6,7 +6,7 @@ st.set_page_config(page_title="CAWB Manager", page_icon="parcels", layout="wide"
 st.title("CAWB Manager")
 st.markdown("---")
 
-MIJLOACE_TRANSPORT = sorted([
+MIJLOACE_TRANSPORT_DEFAULT = sorted([
     'IF32YAC', 'CL27ABS', 'IF69AMS', 'IF19TEX', 'IF07SNA', 'IF87MGV', 'IF21MGW',
     'IF35TEX', 'GR21TEX', 'IF57STM', 'IF90SNA', 'IF96STM', 'B125MLK', 'IL51DOD',
     'BR78CEH', 'IF68SMA', 'CL30ABS', 'B150MLK', 'IF43MGV', 'IF15ANS', 'IF42STT',
@@ -22,6 +22,9 @@ MIJLOACE_TRANSPORT = sorted([
     'CL25ABS', 'IF28YAC', 'GR11CXB', 'TR10TEN', 'IF26ANS', 'IF32MGW', 'IF71MGV',
     'IF19MGW', 'TR97TEN', 'MH92TOX', 'IF20DTI', 'IF29MGW', 'IF79MGV', 'IF72MGV'
 ])
+
+if "lista_masini" not in st.session_state:
+    st.session_state["lista_masini"] = MIJLOACE_TRANSPORT_DEFAULT.copy()
 
 def get_zona(dest):
     if not isinstance(dest, str):
@@ -108,31 +111,27 @@ if uploaded_files:
         lc4.markdown('<div style="background-color:#FFEB9C;padding:8px;border-radius:5px;text-align:center"><b>Galben - Alte zone</b></div>', unsafe_allow_html=True)
         st.markdown("---")
 
-        tab1, tab2, tab3, tab4 = st.tabs(["Fara Parinte", "Cu Parinte", "Toate CAWB-urile", "Mijloace Transport"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Fara Parinte", "Cu Parinte", "Toate CAWB-urile", "Gestionare Masini"])
 
         def afiseaza_tabel(data, key_suffix, include_transport=False):
             st.markdown("### Filtre")
             col_a, col_b = st.columns(2)
             col_c, col_d = st.columns(2)
             col_e, col_f = st.columns(2)
-
             origini = ["Toate"] + sorted(data["Origine"].dropna().unique().tolist())
             dest = ["Toate"] + sorted(data["Destinatie"].dropna().unique().tolist())
             tipuri = sorted(data["Tip"].dropna().unique().tolist())
             culori_disponibile = ["Toate"] + sorted(data["Culoare"].dropna().unique().tolist())
-
             origine_sel = col_a.selectbox("Origine", origini, key="orig_" + key_suffix)
             dest_sel = col_b.selectbox("Destinatie", dest, key="dest_" + key_suffix)
             tipuri_sel = col_c.multiselect("Tip CAWB", options=tipuri, default=tipuri, key="tip_" + key_suffix)
             culoare_sel = col_d.selectbox("Culoare", culori_disponibile, key="culoare_" + key_suffix)
-
             min_c = int(data["Nr colete"].min())
             max_c = int(data["Nr colete"].max())
             if min_c < max_c:
                 colete_range = col_e.slider("Nr Colete (interval)", min_value=min_c, max_value=max_c, value=(1, max_c), key="colete_" + key_suffix)
             else:
                 colete_range = (min_c, max_c)
-
             col_f1, col_f2 = col_f.columns(2)
             ascunde_zero = col_f1.checkbox("Ascunde 0 colete", value=True, key="zero_" + key_suffix)
             search = col_f2.text_input("Cauta CAWB", key="search_" + key_suffix)
@@ -142,20 +141,19 @@ if uploaded_files:
                 st.markdown("**Filtru Mijloc de Transport:**")
                 btn1, btn2, _ = st.columns([1, 1, 4])
                 if btn1.button("Selecteaza toate", key="sel_" + key_suffix):
-                    st.session_state["masini_" + key_suffix] = MIJLOACE_TRANSPORT
+                    st.session_state["masini_" + key_suffix] = st.session_state["lista_masini"].copy()
                 if btn2.button("Deselecteaza toate", key="desel_" + key_suffix):
                     st.session_state["masini_" + key_suffix] = []
                 if "masini_" + key_suffix not in st.session_state:
                     st.session_state["masini_" + key_suffix] = []
                 masini_selectate = st.multiselect(
                     "Selecteaza mijloacele de transport",
-                    options=MIJLOACE_TRANSPORT,
+                    options=st.session_state["lista_masini"],
                     default=st.session_state["masini_" + key_suffix],
                     key="masini_multi_" + key_suffix
                 )
 
             st.markdown("---")
-
             filtered = data.copy()
             if ascunde_zero:
                 filtered = filtered[filtered["Nr colete"] > 0]
@@ -218,57 +216,44 @@ if uploaded_files:
             afiseaza_tabel(df, "toate", include_transport=False)
 
         with tab4:
-            st.subheader("Filtrare dupa Mijloc de Transport")
-            st.markdown("Selecteaza una sau mai multe masini:")
-            col_sel1, col_sel2 = st.columns([1, 3])
-            with col_sel1:
-                if st.button("Selecteaza toate", key="sel_toate"):
-                    st.session_state["masini_selectate"] = MIJLOACE_TRANSPORT
-                if st.button("Deselecteaza toate", key="desel_toate"):
-                    st.session_state["masini_selectate"] = []
-            if "masini_selectate" not in st.session_state:
-                st.session_state["masini_selectate"] = []
-            masini_selectate = st.multiselect(
-                "Mijloace de transport",
-                options=MIJLOACE_TRANSPORT,
-                default=st.session_state["masini_selectate"],
-                key="masini_multi"
-            )
+            st.subheader("Gestionare Lista Mijloace de Transport")
+            st.info("Lista are " + str(len(st.session_state["lista_masini"])) + " masini. Modificarile sunt valabile doar in sesiunea curenta.")
+
+            col_add, col_remove = st.columns(2)
+
+            with col_add:
+                st.markdown("**Adauga masina noua:**")
+                masina_noua = st.text_input("Numarul masinii (ex: IF99XYZ)", key="masina_noua").strip().upper()
+                if st.button("Adauga", key="btn_adauga"):
+                    if masina_noua == "":
+                        st.warning("Introdu un numar de masina!")
+                    elif masina_noua in st.session_state["lista_masini"]:
+                        st.warning("Masina " + masina_noua + " exista deja in lista!")
+                    else:
+                        st.session_state["lista_masini"] = sorted(st.session_state["lista_masini"] + [masina_noua])
+                        st.success("Masina " + masina_noua + " a fost adaugata!")
+                        st.rerun()
+
+            with col_remove:
+                st.markdown("**Sterge masina din lista:**")
+                masina_de_sters = st.selectbox("Selecteaza masina de sters", options=st.session_state["lista_masini"], key="masina_sters")
+                if st.button("Sterge", key="btn_sterge"):
+                    st.session_state["lista_masini"] = [m for m in st.session_state["lista_masini"] if m != masina_de_sters]
+                    st.success("Masina " + masina_de_sters + " a fost stearsa!")
+                    st.rerun()
+
             st.markdown("---")
-            if masini_selectate:
-                col_t1, col_t2 = st.columns(2)
-                ascunde_zero_t = col_t1.checkbox("Ascunde 0 colete", value=True, key="zero_transport")
-                search_t = col_t2.text_input("Cauta CAWB", key="search_transport")
-                filtered_t = df.copy()
-                if "Mijloc transport" in filtered_t.columns:
-                    filtered_t = filtered_t[filtered_t["Mijloc transport"].isin(masini_selectate)]
-                if ascunde_zero_t:
-                    filtered_t = filtered_t[filtered_t["Nr colete"] > 0]
-                if search_t:
-                    filtered_t = filtered_t[filtered_t["CAWB"].str.contains(search_t, case=False, na=False)]
-                cols_show_t = ["CAWB", "Tip", "Culoare", "Ruta", "Origine", "Destinatie",
-                               "CAWB parinte", "Mijloc transport", "Nr colete",
-                               "Total colete descarcate", "Ramas de descarcat", "Fisier sursa"]
-                available_t = [c for c in cols_show_t if c in filtered_t.columns]
-                display_t = filtered_t[available_t].reset_index(drop=True)
-                ct1, ct2, ct3 = st.columns(3)
-                ct1.metric("CAWB-uri gasite", f"{len(display_t):,}")
-                ct2.metric("Total Colete", f"{display_t['Nr colete'].sum():,}")
-                ct3.metric("Total Descarcate", f"{display_t['Total colete descarcate'].sum():,}")
-                styled_t = display_t.style.apply(coloreaza, axis=1)
-                st.dataframe(styled_t, use_container_width=True, height=450)
-                buffer_t = io.BytesIO()
-                display_t.to_excel(buffer_t, index=False)
-                buffer_t.seek(0)
-                st.download_button(
-                    "Descarca Excel",
-                    data=buffer_t,
-                    file_name="cawb_transport.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key="dl_transport"
-                )
-            else:
-                st.info("Selecteaza cel putin o masina pentru a vedea rezultatele.")
+            if st.button("Reseteaza la lista initiala", key="btn_reset"):
+                st.session_state["lista_masini"] = MIJLOACE_TRANSPORT_DEFAULT.copy()
+                st.success("Lista a fost resetata la valorile initiale!")
+                st.rerun()
+
+            st.markdown("**Lista curenta (" + str(len(st.session_state["lista_masini"])) + " masini):**")
+            st.dataframe(
+                pd.DataFrame(st.session_state["lista_masini"], columns=["Mijloc de Transport"]),
+                use_container_width=True,
+                height=400
+            )
 
 else:
     st.info("Te rog incarca unul sau mai multe fisiere CSV sau Excel pentru a incepe.")
