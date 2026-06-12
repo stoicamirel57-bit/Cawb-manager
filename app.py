@@ -1,259 +1,194 @@
 import streamlit as st
 import pandas as pd
-import io
 
-st.set_page_config(page_title="CAWB Manager", page_icon="parcels", layout="wide")
-st.title("CAWB Manager")
-st.markdown("---")
-
-MIJLOACE_TRANSPORT_DEFAULT = sorted([
-    'IF32YAC', 'CL27ABS', 'IF69AMS', 'IF19TEX', 'IF07SNA', 'IF87MGV', 'IF21MGW',
-    'IF35TEX', 'GR21TEX', 'IF57STM', 'IF90SNA', 'IF96STM', 'B125MLK', 'IL51DOD',
-    'BR78CEH', 'IF68SMA', 'CL30ABS', 'B150MLK', 'IF43MGV', 'IF15ANS', 'IF42STT',
-    'IF41MGV', 'IF92STM', 'IF20MGW', 'IF19SNA', 'IF93STM', 'B724SMA', 'BR73CEH',
-    'IF54MGV', 'IF15YAC', 'GR20ALR', 'IF98SNA', 'BR71CEH', 'IF38AMS', 'IF41AMS',
-    'IF20SNA', 'IF11YAC', 'IF94STM', 'IF51ASM', 'IF28AMS', 'B165MLK', 'IF98STM',
-    'IF78MGV', 'BR75CEH', 'IF29SNA', 'IL16DOD', 'B151TKT', 'GR26MNU', 'IF78STM',
-    'IF39ASM', 'B163MLK', 'IL64BMG', 'IF64SMA', 'B168MLK', 'IF53MGV', 'BR77CEH',
-    'IL19DOD', 'GR24ZZI', 'IF32MGV', 'IF30YAC', 'IF36MGV', 'IL44DOD', 'IF42YAC',
-    'IF96SNA', 'IF44ANS', 'IL94DOD', 'BR72CEH', 'IF18VXX', 'IF86SMA', 'IF67MGV',
-    'IL23BGM', 'IF93ANS', 'IF02MGW', 'IF70MGV', 'IF31TEX', 'IF26MGW', 'GR14TEX',
-    'IF42SSA', 'IF47YAC', 'IF94MGV', 'TR20DEN', 'IF93AMS', 'IF52STM', 'IF89MGV',
-    'CL25ABS', 'IF28YAC', 'GR11CXB', 'TR10TEN', 'IF26ANS', 'IF32MGW', 'IF71MGV',
-    'IF19MGW', 'TR97TEN', 'MH92TOX', 'IF20DTI', 'IF29MGW', 'IF79MGV', 'IF72MGV'
-])
-
-if "lista_masini" not in st.session_state:
-    st.session_state["lista_masini"] = MIJLOACE_TRANSPORT_DEFAULT.copy()
-
-def get_zona(dest):
-    if not isinstance(dest, str):
-        return "Alta", "#FFFFFF"
-    d = dest.strip()
-    exact_mov = ['DC2_R30_OCT_H01', 'DC1_R30_OTC_H01']
-    if d in exact_mov:
-        return "Mov", "#C27BA0"
-    exact_rosu = ['SOF_SOFIAHUB_H01']
-    if d in exact_rosu:
-        return "Rosu", "#FF4444"
-    exact_verde = ['CV_SFGHEORGHE_A01', 'CT_MEGIDIA_A05', 'GR_GIURGIU_A02', 'CL_CALARASI_A01']
-    if d in exact_verde:
-        return "Verde", "#C6EFCE"
-    mov_patterns = ['B_A0', 'B_PO', 'B_ST', 'B_MO', 'B_HUB', 'B_BRAG', 'B_STEF', 'LOCKERE', 'SB_SIBIU_H']
-    for p in mov_patterns:
-        if d.startswith(p):
-            return "Mov", "#C27BA0"
-    prefix2 = d[:2]
-    verde = ['BZ', 'DJ', 'OT', 'BR', 'DB', 'PH', 'IL', 'AG', 'TR']
-    if prefix2 in verde:
-        return "Verde", "#C6EFCE"
-    rosu = ['IS', 'CJ', 'MM', 'BN', 'CS', 'SV', 'BH', 'TM', 'SM', 'SJ', 'BT', 'AR', 'SD']
-    if prefix2 in rosu:
-        return "Rosu", "#FF4444"
-    if d.startswith('MS_TGM') or d.startswith('MS_TGMURES'):
-        return "Rosu", "#FF4444"
-    galben = ['SB', 'BC', 'CT', 'TL', 'HD', 'VL', 'NT', 'VN', 'MS', 'HR', 'GJ', 'MH', 'GL', 'BV', 'AB', 'VS']
-    if prefix2 in galben:
-        return "Galben", "#FFEB9C"
-    return "Alta", "#FFFFFF"
-
-def coloreaza(row):
-    _, culoare = get_zona(row.get("Destinatie", ""))
-    return ["background-color: " + culoare] * len(row)
-
-uploaded_files = st.file_uploader(
-    "Incarca unul sau mai multe fisiere CSV / Excel",
-    type=["csv", "xlsx", "xls"],
-    accept_multiple_files=True
+st.set_page_config(
+    page_title="Iesire Sorter Manager",
+    page_icon="🚚",
+    layout="wide"
 )
 
-if uploaded_files:
-    dfs = []
-    for f in uploaded_files:
-        try:
-            if f.name.endswith(".csv"):
-                temp = pd.read_csv(f)
-            else:
-                temp = pd.read_excel(f)
-            temp["Fisier sursa"] = f.name
-            dfs.append(temp)
-            st.success("Fisier incarcat cu succes: " + f.name + " (" + str(len(temp)) + " randuri)")
-        except Exception as e:
-            st.error("Eroare la fisierul " + f.name + ": " + str(e))
+# ── CSS personalizat ──────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+  [data-testid="stAppViewContainer"] { background: #ffffff; }
+  [data-testid="stHeader"] { background: #ffffff; }
 
-    if dfs:
-        df = pd.concat(dfs, ignore_index=True)
-        df["Nr colete"] = pd.to_numeric(df["Nr colete"], errors="coerce").fillna(0).astype(int)
-        df["Total colete descarcate"] = pd.to_numeric(df["Total colete descarcate"], errors="coerce").fillna(0).astype(int)
-        df["Ramas de descarcat"] = pd.to_numeric(df["Ramas de descarcat"], errors="coerce").fillna(0).astype(int)
-        split_ruta = df["Ruta"].str.split(" => ", expand=True, n=1)
-        df["Origine"] = split_ruta[0]
-        df["Destinatie"] = split_ruta[1] if 1 in split_ruta.columns else ""
-        df["Culoare"] = df["Destinatie"].apply(lambda x: get_zona(x)[0])
-        df_fara_parinte = df[df["CAWB parinte"] == "Fara parinte"].copy()
-        df_cu_parinte = df[df["CAWB parinte"] != "Fara parinte"].copy()
+  h1 { font-size: 28px !important; font-weight: 800 !important; color: #111 !important; }
 
-        st.markdown("---")
-        st.subheader("Statistici Generale")
-        col1, col2, col3, col4, col5 = st.columns(5)
-        col1.metric("Fisiere incarcate", str(len(dfs)))
-        col2.metric("Total CAWB-uri", f"{len(df):,}")
-        col3.metric("Fara Parinte", f"{len(df_fara_parinte):,}")
-        col4.metric("Cu Parinte", f"{len(df_cu_parinte):,}")
-        col5.metric("Total Colete", f"{df['Nr colete'].sum():,}")
+  div[data-testid="metric-container"] {
+    background: #f8f8f8;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 12px 20px;
+  }
+  div[data-testid="metric-container"] label { color: #777 !important; font-size: 12px !important; }
+  div[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    font-size: 28px !important; font-weight: 800 !important; color: #111 !important;
+  }
 
-        st.markdown("---")
-        st.markdown("**Legenda culori:**")
-        lc1, lc2, lc3, lc4 = st.columns(4)
-        lc1.markdown('<div style="background-color:#C6EFCE;padding:8px;border-radius:5px;text-align:center"><b>Verde - Sud</b></div>', unsafe_allow_html=True)
-        lc2.markdown('<div style="background-color:#FF4444;padding:8px;border-radius:5px;text-align:center;color:white"><b>Rosu - Nord / Vest / International</b></div>', unsafe_allow_html=True)
-        lc3.markdown('<div style="background-color:#C27BA0;padding:8px;border-radius:5px;text-align:center;color:white"><b>Mov - Bucuresti / Hub-uri</b></div>', unsafe_allow_html=True)
-        lc4.markdown('<div style="background-color:#FFEB9C;padding:8px;border-radius:5px;text-align:center"><b>Galben - Alte zone</b></div>', unsafe_allow_html=True)
-        st.markdown("---")
+  .legend-box {
+    display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 20px 0;
+  }
+  .leg { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+  .leg-verde  { background: #c8f0c8; color: #1a5c1a; }
+  .leg-rosu   { background: #f44336; color: #fff; }
+  .leg-mov    { background: #ce93d8; color: #4a1060; }
+  .leg-galben { background: #f9e79f; color: #7a6000; }
 
-        tab1, tab2, tab3, tab4 = st.tabs(["Fara Parinte", "Cu Parinte", "Toate CAWB-urile", "Gestionare Masini"])
+  .stDataFrame { border: 1px solid #e8e8e8 !important; border-radius: 8px !important; }
+</style>
+""", unsafe_allow_html=True)
 
-        def afiseaza_tabel(data, key_suffix, include_transport=False):
-            st.markdown("### Filtre")
-            col_a, col_b = st.columns(2)
-            col_c, col_d = st.columns(2)
-            col_e, col_f = st.columns(2)
-            origini = ["Toate"] + sorted(data["Origine"].dropna().unique().tolist())
-            dest = ["Toate"] + sorted(data["Destinatie"].dropna().unique().tolist())
-            tipuri = sorted(data["Tip"].dropna().unique().tolist())
-            culori_disponibile = ["Toate"] + sorted(data["Culoare"].dropna().unique().tolist())
-            origine_sel = col_a.selectbox("Origine", origini, key="orig_" + key_suffix)
-            dest_sel = col_b.selectbox("Destinatie", dest, key="dest_" + key_suffix)
-            tipuri_sel = col_c.multiselect("Tip CAWB", options=tipuri, default=tipuri, key="tip_" + key_suffix)
-            culoare_sel = col_d.selectbox("Culoare", culori_disponibile, key="culoare_" + key_suffix)
-            min_c = int(data["Nr colete"].min())
-            max_c = int(data["Nr colete"].max())
-            if min_c < max_c:
-                colete_range = col_e.slider("Nr Colete (interval)", min_value=min_c, max_value=max_c, value=(1, max_c), key="colete_" + key_suffix)
-            else:
-                colete_range = (min_c, max_c)
-            col_f1, col_f2 = col_f.columns(2)
-            ascunde_zero = col_f1.checkbox("Ascunde 0 colete", value=True, key="zero_" + key_suffix)
-            search = col_f2.text_input("Cauta CAWB", key="search_" + key_suffix)
+# ── Zone mapping ──────────────────────────────────────────────────────────────
+SUD   = {'GL','BR','VN','BZ','IL','CL','GR','TR','CT','TL','PH','DB','AG'}
+NORDV = {'IS','NT','BC','VS','BT','SV','MM','BH','SM','SJ','CJ','BN',
+          'MS','HR','CV','BV','SB','AB','HD','TM','AR','CS','MH','GJ','VL','OT','DJ'}
 
-            masini_selectate = []
-            if include_transport:
-                st.markdown("**Filtru Mijloc de Transport:**")
-                btn1, btn2, _ = st.columns([1, 1, 4])
-                if btn1.button("Selecteaza toate", key="sel_" + key_suffix):
-                    st.session_state["masini_" + key_suffix] = st.session_state["lista_masini"].copy()
-                if btn2.button("Deselecteaza toate", key="desel_" + key_suffix):
-                    st.session_state["masini_" + key_suffix] = []
-                if "masini_" + key_suffix not in st.session_state:
-                    st.session_state["masini_" + key_suffix] = []
-                masini_selectate = st.multiselect(
-                    "Selecteaza mijloacele de transport",
-                    options=st.session_state["lista_masini"],
-                    default=st.session_state["masini_" + key_suffix],
-                    key="masini_multi_" + key_suffix
-                )
+def get_zone(agency):
+    if not agency or pd.isna(agency):
+        return 'galben'
+    prefix = str(agency).split('_')[0].upper()
+    if prefix == 'B':  return 'mov'
+    if prefix in SUD:  return 'verde'
+    if prefix in NORDV: return 'rosu'
+    return 'galben'
 
-            st.markdown("---")
-            filtered = data.copy()
-            if ascunde_zero:
-                filtered = filtered[filtered["Nr colete"] > 0]
-            if origine_sel != "Toate":
-                filtered = filtered[filtered["Origine"] == origine_sel]
-            if dest_sel != "Toate":
-                filtered = filtered[filtered["Destinatie"] == dest_sel]
-            if tipuri_sel:
-                filtered = filtered[filtered["Tip"].isin(tipuri_sel)]
-            if culoare_sel != "Toate":
-                filtered = filtered[filtered["Culoare"] == culoare_sel]
-            if search:
-                filtered = filtered[filtered["CAWB"].str.contains(search, case=False, na=False)]
-            if include_transport and masini_selectate:
-                filtered = filtered[filtered["Mijloc transport"].isin(masini_selectate)]
-            filtered = filtered[
-                (filtered["Nr colete"] >= colete_range[0]) &
-                (filtered["Nr colete"] <= colete_range[1])
-            ]
+ZONE_COLORS = {
+    'verde':  '#eafaea',
+    'rosu':   '#fdecea',
+    'mov':    '#f3e5f5',
+    'galben': '#fffde7',
+}
+ZONE_TEXT = {
+    'verde':  '#1a5c1a',
+    'rosu':   '#c62828',
+    'mov':    '#6a1b9a',
+    'galben': '#7a6000',
+}
 
-            if include_transport:
-                cols_show = ["CAWB", "Tip", "Culoare", "Ruta", "Origine", "Destinatie", "CAWB parinte",
-                             "Mijloc transport", "Nr colete", "Total colete descarcate", "Ramas de descarcat", "Fisier sursa"]
-            else:
-                cols_show = ["CAWB", "Tip", "Culoare", "Ruta", "Origine", "Destinatie", "CAWB parinte",
-                             "Nr colete", "Total colete descarcate", "Ramas de descarcat", "Fisier sursa"]
+def color_agency(val, col):
+    zone = get_zone(val)
+    bg   = ZONE_COLORS.get(zone, '#fff')
+    fg   = ZONE_TEXT.get(zone, '#333')
+    return f'background-color: {bg}; color: {fg}; font-weight: 500; border-radius: 4px;'
 
-            available = [c for c in cols_show if c in filtered.columns]
-            display_df = filtered[available].reset_index(drop=True)
+def highlight_row(row):
+    zone = get_zone(row.get('Agentie livrare', ''))
+    colors = {
+        'verde':  '#f0fdf0',
+        'rosu':   '#fff5f5',
+        'mov':    '#fdf5ff',
+        'galben': '#fffef0',
+    }
+    bg = colors.get(zone, '#fff')
+    return [f'background-color: {bg}'] * len(row)
 
-            c1, c2, c3 = st.columns(3)
-            c1.metric("CAWB-uri filtrate", f"{len(display_df):,}")
-            c2.metric("Total Colete", f"{display_df['Nr colete'].sum():,}")
-            c3.metric("Total Descarcate", f"{display_df['Total colete descarcate'].sum():,}")
+# ── UI ────────────────────────────────────────────────────────────────────────
+st.title("🚚 Iesire Sorter Manager")
+st.markdown("---")
 
-            styled_df = display_df.style.apply(coloreaza, axis=1)
-            st.dataframe(styled_df, use_container_width=True, height=450)
+uploaded = st.file_uploader(
+    "Incarca fisier CSV sau Excel",
+    type=["csv", "xlsx", "xls"],
+    help="Formate acceptate: CSV, XLSX, XLS"
+)
 
-            buffer = io.BytesIO()
-            display_df.to_excel(buffer, index=False)
-            buffer.seek(0)
-            st.download_button(
-                "Descarca Excel",
-                data=buffer,
-                file_name="cawb_" + key_suffix + ".xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key="dl_" + key_suffix
-            )
+if uploaded:
+    try:
+        if uploaded.name.lower().endswith(".csv"):
+            df = pd.read_csv(uploaded)
+        else:
+            df = pd.read_excel(uploaded)
+    except Exception as e:
+        st.error(f"Eroare la citirea fisierului: {e}")
+        st.stop()
 
-        with tab1:
-            st.subheader("CAWB-uri Fara Parinte (" + str(len(df_fara_parinte)) + ")")
-            afiseaza_tabel(df_fara_parinte, "fara_parinte", include_transport=False)
+    st.success(f"✅ Fisier incarcat cu succes: **{uploaded.name}** ({len(df):,} randuri)")
+    st.markdown("---")
 
-        with tab2:
-            st.subheader("CAWB-uri Cu Parinte (" + str(len(df_cu_parinte)) + ")")
-            afiseaza_tabel(df_cu_parinte, "cu_parinte", include_transport=True)
+    # ── Statistici ────────────────────────────────────────────────────────────
+    st.markdown("### 📊 Statistici Generale")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Total Colete",      f"{len(df):,}")
+    c2.metric("Agentii Ridicare",  f"{df['Agentie ridicare'].nunique():,}")
+    c3.metric("Agentii Livrare",   f"{df['Agentie livrare'].nunique():,}")
+    c4.metric("Statusuri Unice",   f"{df['Status'].nunique():,}")
+    c5.metric("Fisiere incarcate", "1")
 
-        with tab3:
-            st.subheader("Toate CAWB-urile (" + str(len(df)) + ")")
-            afiseaza_tabel(df, "toate", include_transport=False)
+    # ── Legenda ───────────────────────────────────────────────────────────────
+    st.markdown("**Legenda culori:**")
+    st.markdown("""
+    <div class="legend-box">
+      <div class="leg leg-verde">🟢 Verde – Sud</div>
+      <div class="leg leg-rosu">🔴 Rosu – Nord / Vest / International</div>
+      <div class="leg leg-mov">🟣 Mov – Bucuresti / Hub-uri</div>
+      <div class="leg leg-galben">🟡 Galben – Alte zone</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        with tab4:
-            st.subheader("Gestionare Lista Mijloace de Transport")
-            st.info("Lista are " + str(len(st.session_state["lista_masini"])) + " masini. Modificarile sunt valabile doar in sesiunea curenta.")
+    st.markdown("---")
 
-            col_add, col_remove = st.columns(2)
+    # ── Filtre & Sortare ──────────────────────────────────────────────────────
+    col_f, col_s1, col_s2 = st.columns([3, 1, 1])
+    with col_f:
+        search = st.text_input("🔍 Cauta dupa colet, agentie, status...", "")
+    with col_s1:
+        sort_col = st.selectbox("Sorteaza dupa:", [
+            "Agentie livrare",
+            "Agentie ridicare",
+            "Nr colet",
+            "Status",
+            "Data receptie",
+            "Data ultim status",
+        ])
+    with col_s2:
+        sort_dir = st.radio("Directie:", ["↑ A-Z", "↓ Z-A"], horizontal=True)
 
-            with col_add:
-                st.markdown("**Adauga masina noua:**")
-                masina_noua = st.text_input("Numarul masinii (ex: IF99XYZ)", key="masina_noua").strip().upper()
-                if st.button("Adauga", key="btn_adauga"):
-                    if masina_noua == "":
-                        st.warning("Introdu un numar de masina!")
-                    elif masina_noua in st.session_state["lista_masini"]:
-                        st.warning("Masina " + masina_noua + " exista deja in lista!")
-                    else:
-                        st.session_state["lista_masini"] = sorted(st.session_state["lista_masini"] + [masina_noua])
-                        st.success("Masina " + masina_noua + " a fost adaugata!")
-                        st.rerun()
+    # ── Aplicare filtre ───────────────────────────────────────────────────────
+    view = df.copy()
+    if search.strip():
+        mask = view.apply(lambda r: r.astype(str).str.contains(search, case=False, na=False).any(), axis=1)
+        view = view[mask]
 
-            with col_remove:
-                st.markdown("**Sterge masina din lista:**")
-                masina_de_sters = st.selectbox("Selecteaza masina de sters", options=st.session_state["lista_masini"], key="masina_sters")
-                if st.button("Sterge", key="btn_sterge"):
-                    st.session_state["lista_masini"] = [m for m in st.session_state["lista_masini"] if m != masina_de_sters]
-                    st.success("Masina " + masina_de_sters + " a fost stearsa!")
-                    st.rerun()
+    ascending = sort_dir == "↑ A-Z"
+    view = view.sort_values(by=sort_col, ascending=ascending, na_position='last')
 
-            st.markdown("---")
-            if st.button("Reseteaza la lista initiala", key="btn_reset"):
-                st.session_state["lista_masini"] = MIJLOACE_TRANSPORT_DEFAULT.copy()
-                st.success("Lista a fost resetata la valorile initiale!")
-                st.rerun()
+    # ── Randuri per pagina ────────────────────────────────────────────────────
+    rpp_col, _, count_col = st.columns([1, 3, 1])
+    with rpp_col:
+        rpp = st.selectbox("Randuri per pagina:", [25, 50, 100, 200], index=1)
+    with count_col:
+        st.markdown(f"<div style='padding-top:28px;font-size:13px;color:#555;'>"
+                    f"<b>{len(view):,}</b> randuri gasite</div>", unsafe_allow_html=True)
 
-            st.markdown("**Lista curenta (" + str(len(st.session_state["lista_masini"])) + " masini):**")
-            st.dataframe(
-                pd.DataFrame(st.session_state["lista_masini"], columns=["Mijloc de Transport"]),
-                use_container_width=True,
-                height=400
-            )
+    total_pages = max(1, (len(view) - 1) // rpp + 1)
+    page = st.number_input("Pagina:", min_value=1, max_value=total_pages, value=1, step=1)
+    start = (page - 1) * rpp
+    page_data = view.iloc[start:start + rpp].reset_index(drop=True)
+
+    st.caption(f"Pagina {page} din {total_pages}  •  "
+               f"Randuri {start+1}–{min(start+rpp, len(view))} din {len(view):,}")
+
+    # ── Styling tabel ─────────────────────────────────────────────────────────
+    styled = (
+        page_data.style
+        .apply(highlight_row, axis=1)
+        .applymap(lambda v: color_agency(v, 'Agentie ridicare'), subset=['Agentie ridicare'])
+        .applymap(lambda v: color_agency(v, 'Agentie livrare'),  subset=['Agentie livrare'])
+        .set_properties(**{'font-size': '13px'})
+    )
+
+    st.dataframe(styled, use_container_width=True, height=600)
+
+    # ── Export ────────────────────────────────────────────────────────────────
+    st.markdown("---")
+    csv_exp = view.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        "⬇️ Descarca datele filtrate (CSV)",
+        data=csv_exp,
+        file_name="iesire_sorter_export.csv",
+        mime="text/csv"
+    )
 
 else:
-    st.info("Te rog incarca unul sau mai multe fisiere CSV sau Excel pentru a incepe.")
+    st.info("👆 Incarca un fisier CSV sau Excel pentru a incepe.")
